@@ -9,9 +9,16 @@ class Order:
 
         root = tree.getroot()
 
-        print(root)
+        orders_list = [order.attrib for order in root[1:]]
 
-        self.order = {
+        for order_dict in orders_list:
+            order_dict['Number'] = int(order_dict['Number'])
+            order_dict['Quantity'] = int(order_dict['Quantity'])
+            order_dict['DueDate'] = int(order_dict['DueDate'])
+            order_dict['LatePen'] = float(order_dict['LatePen'])
+            order_dict['EarlyPen'] = float(order_dict['EarlyPen'])
+
+        self.xml = [
             root[0].attrib,
-            [order.attrib for order in root[1:]]
-        }
+            orders_list
+        ]

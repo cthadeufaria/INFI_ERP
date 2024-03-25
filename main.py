@@ -3,7 +3,11 @@ from order_management import Order
 
 
 if __name__ == "__main__":
-    
-    conn = db()
 
-    order = Order('command4.xml')
+    order = Order('command0.xml')
+
+    db = db()
+
+    db.update(order.xml)
+
+    print('stop')
