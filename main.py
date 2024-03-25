@@ -1,7 +1,6 @@
-from database import Database as db
+from database import Database
 from order_management import Order
 from receive_udp import UDPsocket
-import asyncio
 
 
 def main():
@@ -12,8 +11,7 @@ def main():
 
     order = Order('command0.xml')
 
-    db = db()
-
+    db = Database()
     db.update(order.xml)
 
     print('stop')
