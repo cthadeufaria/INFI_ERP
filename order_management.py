@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 
 
+
 class Order:
 
     def __init__(self, file, path='./xml_orders_examples/'):
@@ -18,7 +19,7 @@ class Order:
             order_dict['LatePen'] = float(order_dict['LatePen'])
             order_dict['EarlyPen'] = float(order_dict['EarlyPen'])
 
-        self.xml = [
+        self.file = [
             root[0].attrib,
             orders_list
         ]
