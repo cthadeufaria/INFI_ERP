@@ -2,7 +2,6 @@ import psycopg2
 import os
 
 
-
 class Database:
 
     def __init__(self):
@@ -10,7 +9,6 @@ class Database:
 
 
     def connect(self):
-        
         try:
             conn = psycopg2.connect(
                 host="db.fe.up.pt",
@@ -23,6 +21,7 @@ class Database:
         except psycopg2.Error as e:
             print("Error connecting to the database:")
             print(e)
+
         else:
             print("Connection to database established successfully")
         
@@ -30,7 +29,6 @@ class Database:
 
 
     def update(self, xml):
-
         client_tuple, orders_tuples = self.create_tuples(xml)
 
         ans = self.send_query(
@@ -52,7 +50,6 @@ class Database:
 
 
     def send_query(self, query, parameters=None, fetch=False):
-
         conn = self.connect()
         cur = conn.cursor()
 
@@ -75,5 +72,4 @@ class Database:
 
 
     def create_tuples(self, xml):
-
         return tuple(xml[0].values()), [tuple(x.values()) for x in xml[1]]
