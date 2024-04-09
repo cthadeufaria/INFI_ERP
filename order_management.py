@@ -16,8 +16,8 @@ class Order:
             order['Number'] = int(order['Number'])
             order['Quantity'] = int(order['Quantity'])
             order['DueDate'] = int(order['DueDate'])
-            order['LatePen'] = float(order['LatePen'])
-            order['EarlyPen'] = float(order['EarlyPen'])
+            order['LatePen'] = int(order['LatePen'])
+            order['EarlyPen'] = int(order['EarlyPen'])
 
         self.file = [
             client,
