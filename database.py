@@ -36,16 +36,28 @@ class Database:
             fetch=True
         )
 
-        if client_tuple[0] not in ans:
+        in_any = False
+
+        for tuple in ans:
+            if client_tuple[0] in tuple:
+                in_any = True
+
+        if not in_any:
             self.send_query(
                 """INSERT INTO "INFI".clients (nameid) VALUES (%s);""", 
                 parameters=client_tuple
             )
 
+        ans = self.send_query(
+            """SELECT * from "INFI".clients as c WHERE c.nameid = (%s);""", 
+            parameters=client_tuple,
+            fetch=True
+        )
+
         for t in orders_tuples:
             self.send_query(
                 """INSERT INTO "INFI".orders (number, workpiece, quantity, duedate, latepen, earlypen, clientid) VALUES (%s, %s, %s, %s, %s, %s, %s);""", 
-                parameters=t + (ans[0],)
+                parameters=t + (ans[0][0],)
             )
 
 
@@ -59,7 +71,7 @@ class Database:
             cur.execute(query, (parameters))
 
         if fetch == True:
-            ans = cur.fetchone()
+            ans = cur.fetchall()
         else:
             ans = None
 
