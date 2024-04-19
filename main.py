@@ -6,14 +6,14 @@ import time
 
 
 def main():
-    udp = UDPsocket()
+    udp = UDPsocket("127.0.0.1", 24680)
     db = Database()
 
     receive_thread = threading.Thread(target=udp.listen)
     receive_thread.start()
 
     while True:
-        time.sleep(3)
+        time.sleep(1)
         print('loop')
 
         if udp.data != None:

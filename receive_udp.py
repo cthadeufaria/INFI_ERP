@@ -3,9 +3,9 @@ import socket
 
 class UDPsocket:
 
-    def __init__(self) -> None:
-        self.UDP_IP = "127.0.0.1"
-        self.UDP_PORT = 24680
+    def __init__(self, ip, port) -> None:
+        self.UDP_IP = ip
+        self.UDP_PORT = port
         self.data = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

@@ -15,6 +15,7 @@ class Order:
         for order in orders:
             order['Number'] = int(order['Number'])
             order['Quantity'] = int(order['Quantity'])
+            order['WorkPiece'] = str(order['WorkPiece'])
             order['DueDate'] = int(order['DueDate'])
             order['LatePen'] = int(order['LatePen'])
             order['EarlyPen'] = int(order['EarlyPen'])
