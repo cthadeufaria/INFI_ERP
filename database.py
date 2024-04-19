@@ -28,7 +28,7 @@ class Database:
         return conn
 
 
-    def update(self, xml):
+    def update_clients_orders(self, xml):
         client_tuple, orders_tuples = self.create_tuples(xml)
 
         ans = self.send_query(
