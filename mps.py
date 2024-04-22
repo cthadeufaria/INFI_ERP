@@ -5,59 +5,68 @@ from database import Database
 class MPS:
 
     def __init__(self) -> None:
-        pass
-
-
-    def create_mps(self):
         self.db = Database()
 
-        open_orders = self.get_orders()
+
+    def create_mps(self, today):
+        today_orders = self.get_orders(today)
         
-        inventory_produced, inventory_raw = self.get_inventory()
+        stock_finished, stock_raw = self.get_stock()
         
-        expedition_orders = self.expedition_orders(inventory_produced, open_orders)
-        
-        production_orders = self.production_orders(open_orders, expedition_orders, inventory_raw)
+        expedition_orders = self.expedition_orders(stock_finished, today_orders)
 
         next_open_orders = self.get_next_orders()
 
-        demand = self.demand(next_open_orders, open_orders, expedition_orders, production_orders)
+        production_orders = self.production_orders(today_orders, next_open_orders, expedition_orders, stock_raw)
+
+        demand = self.demand(next_open_orders, today_orders, expedition_orders, production_orders)
 
         self.create_production_plan(demand)
 
         self.create_purchasing_plan(demand)
 
-
-    def get_orders(self):
-        query = """SELECT * from "INFI".orders;"""  # TODO: get orders' status
-        return self.db.send_query(query, fetch=True)
+        self.update_stock()
 
 
-    def get_inventory(self):
-        # TODO:create inventory tables
-        query_prod = """SELECT * FROM "INFI".inventory_prod as ip
-            WHERE ip.day = (SELECT MAX(ip.day) from "INFI".inventory_prod as ip);"""
-        query_raw = """SELECT * FROM "INFI".inventory_raw as ir
-            WHERE ir.day = (SELECT MAX(ir.day) from "INFI".inventory_raw as ir);""" 
+    def get_orders(self, today):
+        # TODO: get orders' status
+        query = """SELECT * from "INFI".orders as o WHERE o.duedate = (%s);"""
+        return self.db.send_query(query, parameters=(today,), fetch=True)
 
-        return self.db.send_query(query_prod, fetch=True), self.db.send_query(query_raw, fetch=True)
+
+    def get_stock(self):
+        query = """SELECT * FROM "INFI".stock as s
+            WHERE s.day = (SELECT MAX(s1.day) from "INFI".stock as s1);"""
+
+        all_stock = self.db.send_query(query, fetch=True)
+
+        finished_workpieces = ('P5', 'P6', 'P7', 'P9')
+        raw_workpieces = ('P1', 'P2')
+        intermediate_workpieces = ('P3', 'P4', 'P8')
+
+        stock_finished = [tpl for tpl in all_stock if tpl[2] in finished_workpieces]
+        stock_raw = [
+            tpl for tpl in all_stock if (tpl[2] in raw_workpieces or tpl[2] in intermediate_workpieces)
+        ]
+
+        return stock_finished, stock_raw
         
 
-    def expedition_orders(self, inventory_produced, open_orders):
-        return min(stock_finished, customer_orders)
+    def expedition_orders(self, stock_finished, today_orders):
+        return min(stock_finished, today_orders)
 
 
-    def production_orders(self, open_orders, expedition_orders, inventory_raw):
-        return min(customer_orders - expedition_orders, stock_raw)
-
-    
     def get_next_orders(self):
-        # TODO get next orders with status pending from database
+        # TODO get orders for next days
         pass
 
 
-    def demand(self, next_open_orders, open_orders, expedition_orders, production_orders):
-        return next_customer_orders + customer_orders - expedition_orders - production_orders
+    def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw):
+        return min((today_orders + next_open_orders) - expedition_orders, stock_raw)
+
+
+    def demand(self, next_open_orders, today_orders, expedition_orders, production_orders):
+        return next_open_orders + today_orders - expedition_orders - production_orders
 
 
     def create_production_plan(self, demand):
@@ -68,7 +77,7 @@ class MPS:
         pass
 
 
-    def update_inventory(self):
+    def update_stock(self):
         pass
 
 
