@@ -5,17 +5,21 @@ import os
 class Database:
 
     def __init__(self):
-        pass
+        self.host = "db.fe.up.pt"
+        self.port = "5432"
+        self.user = os.getenv('db_user')
+        self.password = os.getenv('db_password')
+        self.database = os.getenv('db_name')
 
 
     def connect(self):
         try:
             conn = psycopg2.connect(
-                host="db.fe.up.pt",
-                port="5432",
-                user=os.getenv('db_user'),
-                password=os.getenv('db_password'),
-                database=os.getenv('db_name')
+                host=self.host,
+                port=self.port,
+                user=self.user,
+                password=self.password,
+                database=self.database
             )
 
         except psycopg2.Error as e:
@@ -32,7 +36,7 @@ class Database:
         client_tuple, orders_tuples = self.create_tuples(xml)
 
         ans = self.send_query(
-            """SELECT * from "INFI".clients;""", 
+            """SELECT * from erp_mes.client;""", 
             fetch=True
         )
 
@@ -44,19 +48,19 @@ class Database:
 
         if not in_any:
             self.send_query(
-                """INSERT INTO "INFI".clients (nameid) VALUES (%s);""", 
+                """INSERT INTO erp_mes.client (name) VALUES (%s);""", 
                 parameters=client_tuple
             )
 
         ans = self.send_query(
-            """SELECT * from "INFI".clients as c WHERE c.nameid = (%s);""", 
+            """SELECT * from erp_mes.client as c WHERE c.name = (%s);""", 
             parameters=client_tuple,
             fetch=True
         )
 
         for t in orders_tuples:
             self.send_query(
-                """INSERT INTO "INFI".orders (number, workpiece, quantity, duedate, latepen, earlypen, clientid) VALUES (%s, %s, %s, %s, %s, %s, %s);""", 
+                """INSERT INTO erp_mes.client_order (number, piece, quantity, duedate, latepen, earlypen, client_id) VALUES (%s, %s, %s, %s, %s, %s, %s);""", 
                 parameters=t + (ans[0][0],)
             )
 
