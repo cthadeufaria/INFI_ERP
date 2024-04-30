@@ -2,10 +2,10 @@ from database import Database
 
 
 
-class MPS:
+class MPS(Database):
 
     def __init__(self) -> None:
-        self.db = Database()
+        super().__init__()
 
 
     def create_mps(self, today):
@@ -30,15 +30,15 @@ class MPS:
 
     def get_orders(self, today):
         # TODO: get orders' status
-        query = """SELECT * from "INFI".orders as o WHERE o.duedate = (%s);"""
-        return self.db.send_query(query, parameters=(today,), fetch=True)
+        query = """SELECT * from erp_mes.client_order as o WHERE o.duedate = (%s);"""
+        return self.send_query(query, parameters=(today,), fetch=True)
 
 
     def get_stock(self):
-        query = """SELECT * FROM "INFI".stock as s
-            WHERE s.day = (SELECT MAX(s1.day) from "INFI".stock as s1);"""
+        query = """SELECT * FROM erp_mes.stock as s
+            WHERE s.day = (SELECT MAX(s1.day) from erp_mes.stock as s1);"""
 
-        all_stock = self.db.send_query(query, fetch=True)
+        all_stock = self.send_query(query, fetch=True)
 
         finished_workpieces = ('P5', 'P6', 'P7', 'P9')
         raw_workpieces = ('P1', 'P2')

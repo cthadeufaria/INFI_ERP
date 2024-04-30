@@ -7,7 +7,7 @@ class Clock:
 
 
     def listen(self):
-        self.trigger = False
+        self.trigger = True
         self.today = self.get_day()
 
 
