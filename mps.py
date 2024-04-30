@@ -13,7 +13,7 @@ class MPS(Database):
         
         stock_finished, stock_raw = self.get_stock()
         
-        expedition_orders = self.expedition_orders(stock_finished, today_orders)
+        expedition_orders = self.expedition_orders(stock_finished, today_orders, today)
 
         next_open_orders = self.get_next_orders()
 
@@ -29,7 +29,7 @@ class MPS(Database):
 
 
     def get_orders(self, today):
-        # TODO: get orders' status
+        # TODO: get orders' status.
         query = """SELECT * from erp_mes.client_order as o WHERE o.duedate = (%s);"""
         return self.send_query(query, parameters=(today,), fetch=True)
 
@@ -52,8 +52,20 @@ class MPS(Database):
         return stock_finished, stock_raw
         
 
-    def expedition_orders(self, stock_finished, today_orders):
-        return min(stock_finished, today_orders)
+    def expedition_orders(self, stock_finished, today_orders, today):
+        # TODO: adapt code to admit more than one order of same piece per day. 
+        # Subtract first order quantity from stock before calculating min().
+        return [
+            (
+                t[0], 
+                t[7], 
+                min(s[3], t[3]), 
+                today
+            )
+            for t in today_orders
+            for s in stock_finished
+            if s[2] == t[7]
+        ]
 
 
     def get_next_orders(self):
