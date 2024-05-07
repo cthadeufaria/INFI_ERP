@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from database import Database
 
 
@@ -6,6 +8,9 @@ class MPS(Database):
 
     def __init__(self) -> None:
         super().__init__()
+        self.finished_workpieces = ('P5', 'P6', 'P7', 'P9')
+        self.raw_workpieces = ('P1', 'P2')
+        self.intermediate_workpieces = ('P3', 'P4', 'P8')
 
 
     def create_mps(self, today):
@@ -13,13 +18,28 @@ class MPS(Database):
         
         stock_finished, stock_raw = self.get_stock()
         
-        expedition_orders = self.expedition_orders(stock_finished, today_orders, today)
+        expedition_orders = self.expedition_orders( # TODO: insert into table expedition_order
+            stock_finished, 
+            today_orders, 
+            today
+        )
 
-        next_open_orders = self.get_next_orders()
+        next_open_orders = self.get_next_orders(today)
 
-        production_orders = self.production_orders(today_orders, next_open_orders, expedition_orders, stock_raw)
+        production_orders = self.production_orders(
+            today_orders, 
+            next_open_orders, 
+            expedition_orders, 
+            stock_raw,
+            today
+        )
 
-        demand = self.demand(next_open_orders, today_orders, expedition_orders, production_orders)
+        demand = self.demand(
+            next_open_orders, 
+            today_orders, 
+            expedition_orders, 
+            production_orders
+        )
 
         self.create_production_plan(demand)
 
@@ -40,13 +60,16 @@ class MPS(Database):
 
         all_stock = self.send_query(query, fetch=True)
 
-        finished_workpieces = ('P5', 'P6', 'P7', 'P9')
-        raw_workpieces = ('P1', 'P2')
-        intermediate_workpieces = ('P3', 'P4', 'P8')
+        stock_finished = [
+            tpl 
+            for tpl in all_stock 
+            if tpl[2] in self.finished_workpieces
+        ]
 
-        stock_finished = [tpl for tpl in all_stock if tpl[2] in finished_workpieces]
         stock_raw = [
-            tpl for tpl in all_stock if (tpl[2] in raw_workpieces or tpl[2] in intermediate_workpieces)
+            tpl 
+            for tpl in all_stock 
+            if (tpl[2] in self.raw_workpieces or tpl[2] in self.intermediate_workpieces)
         ]
 
         return stock_finished, stock_raw
@@ -68,13 +91,63 @@ class MPS(Database):
         ]
 
 
-    def get_next_orders(self):
-        # TODO get orders for next days
-        pass
+    def get_next_orders(self, today):
+        # TODO: get orders' status.
+        # TODO: arbitrate until what due date ahead orders must be considered.
+        parameter = today + 1
+        query = """SELECT * from erp_mes.client_order as o WHERE o.duedate >= (%s);"""
+        return self.send_query(query, parameters=(parameter,), fetch=True)
+    
 
+    def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, today):
+        # TODO: Calculate how many pieces in stock_raw are needed 
+        # to produce the quantity needed and return actual orders
+        orders_by_date = [
+            (
+                order[0], 
+                order[7], 
+                order[3], 
+                today
+            )
+            for order in list(today_orders + next_open_orders)
+        ]
 
-    def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw):
-        return min((today_orders + next_open_orders) - expedition_orders, stock_raw)
+        # total_orders = {}
+        
+        # for order in orders_by_date:
+        #     if order[1] in total_orders.keys():
+        #         total_orders[order[1]] += order[2]
+        #     else:
+        #         total_orders[order[1]] = order[2]
+
+        # quantity_needed = total_orders.copy()
+
+        # for order in expedition_orders:
+        #     if order[1] in quantity_needed.keys():
+        #         quantity_needed[order[1]] -= order[2]
+
+        transformations = self.send_query("SELECT * FROM erp_mes.transformations;", fetch=True)
+
+        production_orders = {}
+
+        for k, v in orders_by_date.items():
+            production_orders[k] = v
+
+        a = [
+            (
+                t[0],
+                t[7], 
+                min((t[3] + n[3]) - e[2], s[3]), 
+                today
+            )
+            for t in today_orders
+            for s in stock_raw
+            for e in expedition_orders
+            for n in next_open_orders
+            if (s[2] == t[7] and e[1] == n[7] and n[7] == t[7])
+        ] # old list
+
+        return quantity_needed
 
 
     def demand(self, next_open_orders, today_orders, expedition_orders, production_orders):
