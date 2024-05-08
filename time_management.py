@@ -13,7 +13,9 @@ class Clock(Database):
 
     def listen(self):
         while True:
-            self.today = int((dt.now() - self.initial_time).total_seconds() / 60)
+            # self.today = int((dt.now() - self.initial_time).total_seconds() / 60)
+            # for debugging
+            self.today = 4
             if self.today > self.yesterday:
                 print("Today is ", self.today)
                 self.trigger = True

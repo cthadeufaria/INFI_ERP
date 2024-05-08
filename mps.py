@@ -1,4 +1,4 @@
-from collections import defaultdict
+import networkx as nx
 
 from database import Database
 
@@ -11,6 +11,7 @@ class MPS(Database):
         self.finished_workpieces = ('P5', 'P6', 'P7', 'P9')
         self.raw_workpieces = ('P1', 'P2')
         self.intermediate_workpieces = ('P3', 'P4', 'P8')
+        self.all_pieces = self.finished_workpieces + self.raw_workpieces + self.intermediate_workpieces
 
 
     def create_mps(self, today):
@@ -18,7 +19,7 @@ class MPS(Database):
         
         stock_finished, stock_raw = self.get_stock()
         
-        expedition_orders = self.expedition_orders( # TODO: insert into table expedition_order
+        expedition_orders, stock_finished_updated = self.expedition_orders(
             stock_finished, 
             today_orders, 
             today
@@ -26,7 +27,7 @@ class MPS(Database):
 
         next_open_orders = self.get_next_orders(today)
 
-        production_orders = self.production_orders(
+        production_orders, stock_raw_updated = self.production_orders(
             today_orders, 
             next_open_orders, 
             expedition_orders, 
@@ -45,7 +46,12 @@ class MPS(Database):
 
         self.create_purchasing_plan(demand)
 
-        self.update_stock()
+        self.update_database(
+            expedition_orders, 
+            production_orders, 
+            stock_raw_updated, 
+            stock_finished_updated
+        )
 
 
     def get_orders(self, today):
@@ -76,9 +82,8 @@ class MPS(Database):
         
 
     def expedition_orders(self, stock_finished, today_orders, today):
-        # TODO: adapt code to admit more than one order of same piece per day. 
-        # Subtract first order quantity from stock before calculating min().
-        return [
+        # TODO: update stock finished
+        expedition_orders = [
             (
                 t[0], 
                 t[7], 
@@ -90,6 +95,10 @@ class MPS(Database):
             if s[2] == t[7]
         ]
 
+        stock_finished_updated = []
+
+        return expedition_orders, stock_finished_updated
+
 
     def get_next_orders(self, today):
         # TODO: get orders' status.
@@ -100,8 +109,72 @@ class MPS(Database):
     
 
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, today):
-        # TODO: Calculate how many pieces in stock_raw are needed 
-        # to produce the quantity needed and return actual orders
+        quantity_needed_finished = self.get_quantity_needed_finished(today_orders, next_open_orders, expedition_orders, today)
+
+        transformations = self.send_query("SELECT * FROM erp_mes.transformations;", fetch=True)
+
+        P = nx.DiGraph()
+        P.add_nodes_from(
+            self.finished_workpieces + self.raw_workpieces + self.intermediate_workpieces
+        )
+        P.add_edges_from(
+            [(t[0], t[1]) for t in transformations]
+        )
+
+        best_full_paths = {}
+
+        for order in quantity_needed_finished:
+            for piece in self.raw_workpieces:
+                try:
+                    best_full_paths[order[0]] = nx.dijkstra_path(P, source=piece, target=order[1])
+                except nx.exception.NetworkXNoPath:
+                    pass
+
+        production_orders = []
+
+        for order in quantity_needed_finished:
+            for order_id, path in best_full_paths.items():
+                if order_id == order[0]:
+                    quantity_produced = min(
+                                order[2],
+                                sum([s[3] for s in stock_raw if s[2] in path])
+                            )
+                    production_orders.append(
+                        tuple([
+                            order[0],
+                            order[1],
+                            quantity_produced,
+                            today
+                        ])
+                    )
+
+                    stock_raw_updated = []
+
+                    for stock in stock_raw:
+                        for piece in reversed(path):
+                            if piece == stock[2]:
+                                stock_consumption = min(
+                                    quantity_produced,
+                                    stock_raw[stock_raw==stock][3]
+                                )
+                                stock_raw_updated.append(tuple([
+                                    stock[0],
+                                    stock[1],
+                                    stock[2],
+                                    stock[3] - stock_consumption
+                                ]))
+                                quantity_produced -= stock_consumption
+
+        for stock in stock_raw:
+            print(stock)
+            print(stock_raw_updated)
+            if stock[2] not in [s[2] for s in stock_raw_updated]:
+                stock_raw_updated.append(stock)
+
+        return production_orders, stock_raw_updated
+
+
+    def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, today):
         orders_by_date = [
             (
                 order[0], 
@@ -112,43 +185,25 @@ class MPS(Database):
             for order in list(today_orders + next_open_orders)
         ]
 
-        # total_orders = {}
+        quantity_needed = orders_by_date.copy()
         
-        # for order in orders_by_date:
-        #     if order[1] in total_orders.keys():
-        #         total_orders[order[1]] += order[2]
-        #     else:
-        #         total_orders[order[1]] = order[2]
+        for expedition_order in expedition_orders:
+            for order in orders_by_date:
+                if expedition_order[1] == order[1] and expedition_order[1] == order[1]:                    
+                    quantity_needed[
+                        quantity_needed == order
+                    ] = tuple(
+                        [
+                            order[0], 
+                            order[1], 
+                            order[2] - 
+                            expedition_order[2], 
+                            order[3]
+                        ]
+                    )
 
-        # quantity_needed = total_orders.copy()
-
-        # for order in expedition_orders:
-        #     if order[1] in quantity_needed.keys():
-        #         quantity_needed[order[1]] -= order[2]
-
-        transformations = self.send_query("SELECT * FROM erp_mes.transformations;", fetch=True)
-
-        production_orders = {}
-
-        for k, v in orders_by_date.items():
-            production_orders[k] = v
-
-        a = [
-            (
-                t[0],
-                t[7], 
-                min((t[3] + n[3]) - e[2], s[3]), 
-                today
-            )
-            for t in today_orders
-            for s in stock_raw
-            for e in expedition_orders
-            for n in next_open_orders
-            if (s[2] == t[7] and e[1] == n[7] and n[7] == t[7])
-        ] # old list
-
-        return quantity_needed
-
+        return [t for t in quantity_needed if t[2] > 0]
+    
 
     def demand(self, next_open_orders, today_orders, expedition_orders, production_orders):
         return next_open_orders + today_orders - expedition_orders - production_orders
@@ -162,7 +217,7 @@ class MPS(Database):
         pass
 
 
-    def update_stock(self):
+    def update_database(self):
         pass
 
 

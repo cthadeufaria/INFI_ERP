@@ -29,8 +29,8 @@ def main():
             udp_orders.reset_data()
 
         if clock.trigger:
-            # mps.create_mps(clock.today)
-            print('Create MPS')
+            mps.create_mps(clock.today)
+            print('MPS created for day ', clock.today)
             clock.reset_trigger()
 
 if __name__ == "__main__":
