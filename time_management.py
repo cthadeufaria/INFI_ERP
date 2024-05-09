@@ -4,18 +4,20 @@ from database import Database
 
 
 class Clock(Database):
-    def __init__(self) -> None:
+    def __init__(self, debug) -> None:
         super().__init__()
         self.get_initial_time()
         self.reset_trigger()
         self.yesterday = 0
+        self.debug = debug
 
 
     def listen(self):
         while True:
-            # self.today = int((dt.now() - self.initial_time).total_seconds() / 60)
-            # for debugging
-            self.today = 4
+            if self.debug is False:
+                self.today = int((dt.now() - self.initial_time).total_seconds() / 60)
+            elif self.debug is True:
+                self.today = 4
             if self.today > self.yesterday:
                 print("Today is ", self.today)
                 self.trigger = True
