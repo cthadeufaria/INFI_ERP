@@ -22,10 +22,6 @@ class Clock(Database):
                 print("Today is ", self.today)
                 self.trigger = True
                 self.yesterday = self.today
-
-
-    def get_day(self):
-        return 4
     
 
     def get_initial_time(self):
