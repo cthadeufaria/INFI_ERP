@@ -124,13 +124,15 @@ class MPS(Database):
 
     def get_next_orders(self, today):
         # TODO: get orders' status.
-        # TODO: arbitrate until what due date ahead orders must be considered.
         parameter = today + 1
         query = """SELECT * from erp_mes.client_order as o WHERE o.duedate >= (%s);"""
         return self.send_query(query, parameters=(parameter,), fetch=True)
     
 
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
+        # TODO: for each piece, there can't be more than one production order sent, 
+        # independently of the production order day.
+        # TODO: Max of 12 pieces produced on each day simultaneously.
         best_full_paths = {}
 
         for order in quantity_needed_finished:
@@ -231,6 +233,7 @@ class MPS(Database):
     
 
     def supplier_orders(self, production_orders, quantity_needed_finished):
+        # TODO: consider supplier delivery time
         lack_production = [
             tuple([
                 o[0],
@@ -268,6 +271,7 @@ class MPS(Database):
             stock_finished_updated,
             supplier_orders
     ) -> None:
+        # TODO: don't update any stock. It's up to MES.
         print("Updating Database...")
 
         for order in expedition_orders:
