@@ -74,8 +74,19 @@ class MPS(Database):
 
 
     def get_orders(self, today):
-        # TODO: get orders' status.
-        query = """SELECT * from erp_mes.client_order as o WHERE o.duedate = (%s);"""
+        query = """SELECT 
+            o.id, o.client_id, o.number, o.quantity - s.quantity,
+            o.duedate, o.latepen, o.earlypen, o.piece
+            from erp_mes.client_order as o 
+            left outer join 
+            (SELECT * 
+            from erp_mes.expedition_order eo
+            left outer join 
+            erp_mes.expedition_status es
+            on eo.id = es.expedition_order_id) s
+            on o.id = s.client_order_id
+            WHERE s.end_date is NULL
+            AND o.duedate = (%s);"""
         return self.send_query(query, parameters=(today,), fetch=True)
 
 
@@ -128,9 +139,20 @@ class MPS(Database):
 
 
     def get_next_orders(self, today):
-        # TODO: get orders' status.
         parameter = today + 1
-        query = """SELECT * from erp_mes.client_order as o WHERE o.duedate >= (%s);"""
+        query = """SELECT 
+            o.id, o.client_id, o.number, o.quantity - s.quantity,
+            o.duedate, o.latepen, o.earlypen, o.piece
+            from erp_mes.client_order as o 
+            left outer join 
+            (SELECT * 
+            from erp_mes.expedition_order eo
+            left outer join 
+            erp_mes.expedition_status es
+            on eo.id = es.expedition_order_id) s
+            on o.id = s.client_order_id
+            WHERE s.end_date is NULL
+            AND o.duedate >= (%s);"""
         return self.send_query(query, parameters=(parameter,), fetch=True)
     
 
