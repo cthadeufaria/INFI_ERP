@@ -74,8 +74,11 @@ class MPS(Database):
 
 
     def get_orders(self, today):
-        query = """SELECT 
-            o.id, o.client_id, o.number, o.quantity - s.quantity,
+        query = """SELECT
+            o.id, o.client_id, o.number, o.quantity - 
+            case when s.quantity is null then 0
+            else s.quantity
+            end,
             o.duedate, o.latepen, o.earlypen, o.piece
             from erp_mes.client_order as o 
             left outer join 
@@ -141,7 +144,10 @@ class MPS(Database):
     def get_next_orders(self, today):
         parameter = today + 1
         query = """SELECT 
-            o.id, o.client_id, o.number, o.quantity - s.quantity,
+            o.id, o.client_id, o.number, o.quantity - 
+            case when s.quantity is null then 0
+            else s.quantity
+            end,
             o.duedate, o.latepen, o.earlypen, o.piece
             from erp_mes.client_order as o 
             left outer join 
@@ -159,7 +165,6 @@ class MPS(Database):
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
         # TODO: for each piece, there can't be more than one production order sent, 
         # independently of the production order day.
-        # TODO: Max of 12 pieces produced on each day simultaneously.
         best_full_paths = {}
 
         for order in quantity_needed_finished:
@@ -226,7 +231,18 @@ class MPS(Database):
 
         stock_raw_updated = [s for s in stock_raw_updated if s[2] > 0]
 
-        return production_orders, stock_raw_updated, production_raw_material
+        production_orders_final = []
+
+        for p in production_orders:
+            if p[2] > 0:
+                production_orders.append([
+                    p[0],
+                    p[1],
+                    min(12, p[2]),
+                    p[3]
+                ])
+
+        return production_orders_final, stock_raw_updated, production_raw_material
 
 
     def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, today):
@@ -347,6 +363,7 @@ class MPS(Database):
             stock_finished_updated,
             supplier_orders
     ) -> None:
+        # TODO: update only if len(list) > 0.
         print("Updating Database...")
 
         for order in expedition_orders:
