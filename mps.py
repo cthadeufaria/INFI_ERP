@@ -58,7 +58,7 @@ class MPS(Database):
             quantity_needed_finished
         )
 
-        supplier_orders = self.supplier_orders(
+        supplier_orders, stock_raw_updated_2 = self.supplier_orders(
             supplier_needs, 
             stock_raw
         )
@@ -67,7 +67,7 @@ class MPS(Database):
             self.update_database(
                 expedition_orders, 
                 production_orders, 
-                stock_raw_updated, 
+                stock_raw_updated_2, 
                 stock_finished_updated,
                 supplier_orders
             )
@@ -325,7 +325,6 @@ class MPS(Database):
             stock_finished_updated,
             supplier_orders
     ) -> None:
-        # TODO: update all stock except for production orders sent. It's up to MES.
         print("Updating Database...")
 
         for order in expedition_orders:
@@ -340,7 +339,7 @@ class MPS(Database):
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_production, parameters=order)
 
-        for stock in stock_raw_updated:  # + stock_finished_updated: Stock 
+        for stock in stock_raw_updated:  # + stock_finished_updated:
             update_stock = """INSERT INTO erp_mes.stock(
             day, piece, quantity
             ) VALUES (%s, %s, %s)"""
