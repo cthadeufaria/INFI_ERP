@@ -163,8 +163,6 @@ class MPS(Database):
     
 
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
-        # TODO: for each piece, there can't be more than one production order sent, 
-        # independently of the production order day.
         best_full_paths = {}
 
         for order in quantity_needed_finished:
@@ -230,6 +228,14 @@ class MPS(Database):
                 )
 
         stock_raw_updated = [s for s in stock_raw_updated if s[2] > 0]
+
+        all_last_production_orders_query = """SELECT * FROM erp_mes.production_order;"""
+        all_last_production_orders = self.send_query(all_last_production_orders_query, fetch=True)
+
+        for order_1 in production_orders:
+            for order_2 in all_last_production_orders:
+                if order_1[0] == order_2[1] and order_1[1] == order_2[2]:
+                    order_1[2] = order_1[2] - order_2[3]
 
         production_orders_final = []
 
@@ -363,7 +369,6 @@ class MPS(Database):
             stock_finished_updated,
             supplier_orders
     ) -> None:
-        # TODO: update only if len(list) > 0.
         print("Updating Database...")
 
         for order in expedition_orders:
