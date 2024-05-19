@@ -53,9 +53,14 @@ class MPS(Database):
             today
         )
 
-        supplier_orders = self.supplier_orders(
+        supplier_needs = self.supplier_needs(
             production_orders,
             quantity_needed_finished
+        )
+
+        supplier_orders = self.supplier_orders(
+            supplier_needs, 
+            stock_raw
         )
 
         if self.online is True:
@@ -170,12 +175,13 @@ class MPS(Database):
                                     quantity_produced,
                                     stock_raw[stock_raw==stock][3]
                                 )
-
-                                stock_raw_updated.append(tuple([
-                                    stock[1] + 1,
-                                    stock[2],
-                                    stock[3] - stock_consumption
-                                ]))
+                                
+                                # stock updated only for supplier's orders
+                                # stock_raw_updated.append(tuple([
+                                #     stock[1] + 1,
+                                #     stock[2],
+                                #     stock[3] - stock_consumption
+                                # ]))
 
                                 production_raw_material.append(tuple([
                                     stock[0],
@@ -232,8 +238,7 @@ class MPS(Database):
         return [t for t in quantity_needed if t[2] > 0]
     
 
-    def supplier_orders(self, production_orders, quantity_needed_finished):
-        # TODO: consider supplier delivery time
+    def supplier_needs(self, production_orders, quantity_needed_finished):
         lack_production = [
             tuple([
                 o[0],
@@ -246,12 +251,12 @@ class MPS(Database):
             if o[0] == f[0]
         ]
 
-        supplier_orders = []
+        supplier_needs = []
 
         for order in lack_production:
             raw_piece = [raw for raw in nx.ancestors(self.P, order[1]) if self.P.in_degree(raw) == 0][0]
 
-            supplier_orders.append(
+            supplier_needs.append(
                 tuple([
                     order[0],
                     raw_piece,
@@ -260,7 +265,56 @@ class MPS(Database):
                 ])
             )
 
-        return supplier_orders
+        return supplier_needs
+
+
+    def supplier_orders(self, supplier_needs, stock_raw):
+        supplier_query = """SELECT * from erp_mes.supplier;"""
+        suppliers = self.send_query(supplier_query, fetch=True)
+
+        supplier_orders = []
+
+        # Not optimized. Just chose the faster delivery.
+        supplier = 'SupplierC'
+        
+        for order in supplier_needs:
+            supplier_orders.append([
+                order[0],
+                order[1],
+                max(
+                    order[2],
+                    [m[3] for m in suppliers if m[2] == order[1] and m[1] == supplier][0]
+                ),
+                order[3]
+            ])
+        
+        stock_raw_updated_2 = []
+
+        for stock in stock_raw:
+            stock_raw_updated_2.append([
+                stock[1] + 1,
+                stock[2],
+                stock[3]
+            ])
+
+        stock_raw_updated_suppliers = []
+        for order in supplier_orders:        
+            stock_raw_updated_suppliers.append([
+                order[3] + [m[5] for m in suppliers if m[2] == order[1] and m[1] == supplier][0],
+                order[1],
+                order[2]
+            ])
+
+        for stock_1 in stock_raw_updated_suppliers:
+            for stock_2 in stock_raw_updated_2:
+                if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
+                    stock_2[2] = stock_2[2] + stock_1[2]
+                else:
+                    stock_raw_updated_2.append(
+                        stock_1
+                    )
+
+        return supplier_orders, stock_raw_updated_2
 
 
     def update_database(
@@ -271,7 +325,7 @@ class MPS(Database):
             stock_finished_updated,
             supplier_orders
     ) -> None:
-        # TODO: don't update any stock. It's up to MES.
+        # TODO: update all stock except for production orders sent. It's up to MES.
         print("Updating Database...")
 
         for order in expedition_orders:
@@ -286,7 +340,7 @@ class MPS(Database):
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_production, parameters=order)
 
-        for stock in stock_raw_updated + stock_finished_updated:
+        for stock in stock_raw_updated:  # + stock_finished_updated: Stock 
             update_stock = """INSERT INTO erp_mes.stock(
             day, piece, quantity
             ) VALUES (%s, %s, %s)"""
