@@ -2,7 +2,7 @@
 import socket
  
 UDP_IP = "127.0.0.1"  
-UDP_PORT = 24680       
+UDP_PORT = 24680   
 path = './xml_orders_examples/'
 file = 'command1.xml'
 

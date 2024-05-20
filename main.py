@@ -9,7 +9,7 @@ from mps import MPS
 
 
 def main():
-    udp_orders = UDPsocket("127.0.0.1", 24680)
+    udp_orders = UDPsocket("0.0.0.0", 24680)
     clock = Clock(debug=True)
     mps = MPS(online=False)
 
