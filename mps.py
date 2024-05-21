@@ -182,12 +182,12 @@ class MPS(Database):
                                 sum([s[3] for s in stock_raw if s[2] in path])
                             )
                     production_orders.append(
-                        tuple([
+                        [
                             order[0],
                             order[1],
                             quantity_produced,
                             today
-                        ])
+                        ]
                     )
 
                     stock_raw_updated = []
@@ -241,12 +241,14 @@ class MPS(Database):
 
         for p in production_orders:
             if p[2] > 0:
-                production_orders.append([
-                    p[0],
-                    p[1],
-                    min(12, p[2]),
-                    p[3]
-                ])
+                production_orders_final.append(
+                    tuple([
+                        p[0],
+                        p[1],
+                        min(12, p[2]),
+                        p[3]
+                    ])
+                )
 
         return production_orders_final, stock_raw_updated, production_raw_material
 
@@ -318,7 +320,7 @@ class MPS(Database):
 
         supplier_orders = []
 
-        # Not optimized. Just chose the faster delivery.
+        # TODO: Not optimized. Just chose the faster delivery.
         supplier = 'SupplierC'
         
         for order in supplier_needs:
@@ -349,6 +351,7 @@ class MPS(Database):
                 order[2]
             ])
 
+        # TODO: delete stock raw 
         for stock_1 in stock_raw_updated_suppliers:
             for stock_2 in stock_raw_updated_2:
                 if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
