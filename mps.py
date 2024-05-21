@@ -190,23 +190,25 @@ class MPS(Database):
                         ]
                     )
 
-                    stock_raw_updated = []
                     production_raw_material = []
+                    i = 0
 
                     for stock in stock_raw:
                         for piece in reversed(path):
                             if piece == stock[2]:
                                 stock_consumption = min(
                                     quantity_produced,
-                                    stock_raw[stock_raw==stock][3]
+                                    stock[3]
                                 )
+
+                                quantity_produced -= stock_consumption
                                 
-                                # stock updated only for supplier's orders
-                                # stock_raw_updated.append(tuple([
-                                #     stock[1] + 1,
-                                #     stock[2],
-                                #     stock[3] - stock_consumption
-                                # ]))
+                                # TODO: update stock for next iteration. pop entire tuple in stock and replace for new tuple considering stock consumption
+                                stock_raw[i] = tuple([
+                                    stock[1],
+                                    stock[2],
+                                    stock[3] - stock_consumption
+                                ])
 
                                 production_raw_material.append(tuple([
                                     stock[0],
@@ -216,18 +218,20 @@ class MPS(Database):
                                 ]))
 
                                 quantity_produced -= stock_consumption
+                        
+                        i += 1
 
-        for stock in stock_raw:
-            if stock[2] not in [s[1] for s in stock_raw_updated]:
-                stock_raw_updated.append(
-                    tuple([
-                        stock[1] + 1,
-                        stock[2],
-                        stock[3],
-                    ])
-                )
+        # for stock in stock_raw:
+        #     if stock[2] not in [s[1] for s in stock_raw_updated]:
+        #         stock_raw_updated.append(
+        #             tuple([
+        #                 stock[1] + 1,
+        #                 stock[2],
+        #                 stock[3],
+        #             ])
+        #         )
 
-        stock_raw_updated = [s for s in stock_raw_updated if s[2] > 0]
+        stock_raw = [s for s in stock_raw if s[2] > 0]
 
         all_last_production_orders_query = """SELECT * FROM erp_mes.production_order;"""
         all_last_production_orders = self.send_query(all_last_production_orders_query, fetch=True)
@@ -250,7 +254,7 @@ class MPS(Database):
                     ])
                 )
 
-        return production_orders_final, stock_raw_updated, production_raw_material
+        return production_orders_final, stock_raw, production_raw_material
 
 
     def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, today):
