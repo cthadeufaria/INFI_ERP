@@ -163,7 +163,6 @@ class MPS(Database):
     
 
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
-        # TODO: check if production_order method is right.
         best_full_paths = {}
 
         for order in quantity_needed_finished:
@@ -217,8 +216,6 @@ class MPS(Database):
                                     stock[2],
                                     stock_consumption
                                 ]))
-
-                                quantity_produced -= stock_consumption
                         
                         i += 1
 
@@ -243,17 +240,31 @@ class MPS(Database):
                     order_1[2] = order_1[2] - order_2[3]
 
         production_orders_final = []
+        all_pieces = 0
 
         for p in production_orders:
-            if p[2] > 0:
+            all_pieces += p[2]
+            if all_pieces <= 12:
                 production_orders_final.append(
                     tuple([
                         p[0],
                         p[1],
-                        min(12, p[2]),
+                        p[2],
                         p[3]
                     ])
                 )
+            else:
+                production_orders_final.append(
+                    tuple([
+                        p[0],
+                        p[1],
+                        12 - sum([f[2] for f in production_orders_final]),
+                        p[3]
+                    ])
+                )
+                break
+
+        production_orders_final = [p for p in production_orders_final if p[2] > 0]
 
         return production_orders_final, stock_raw, production_raw_material
 
@@ -320,12 +331,13 @@ class MPS(Database):
 
 
     def supplier_orders(self, supplier_needs, stock_raw):
+        # TODO: create table with supplier deliveries (inc id / P1 qty / P2 qty / delivery_date)
         supplier_query = """SELECT * from erp_mes.supplier;"""
         suppliers = self.send_query(supplier_query, fetch=True)
 
         supplier_orders = []
 
-        # TODO: Not optimized. Just chose the faster delivery.
+        # TODO: Optimize supplier selection. Not optimized. Just choosing the faster delivery.
         supplier = 'SupplierC'
         
         for order in supplier_needs:
