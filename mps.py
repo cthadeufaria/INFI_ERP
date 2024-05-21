@@ -163,6 +163,7 @@ class MPS(Database):
     
 
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
+        # TODO: check if production_order method is right.
         best_full_paths = {}
 
         for order in quantity_needed_finished:
@@ -203,8 +204,8 @@ class MPS(Database):
 
                                 quantity_produced -= stock_consumption
                                 
-                                # TODO: update stock for next iteration. pop entire tuple in stock and replace for new tuple considering stock consumption
                                 stock_raw[i] = tuple([
+                                    stock[0],
                                     stock[1],
                                     stock[2],
                                     stock[3] - stock_consumption
@@ -231,7 +232,7 @@ class MPS(Database):
         #             ])
         #         )
 
-        stock_raw = [s for s in stock_raw if s[2] > 0]
+        stock_raw = [s for s in stock_raw if s[3] > 0]
 
         all_last_production_orders_query = """SELECT * FROM erp_mes.production_order;"""
         all_last_production_orders = self.send_query(all_last_production_orders_query, fetch=True)
