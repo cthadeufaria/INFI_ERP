@@ -58,7 +58,7 @@ class MPS(Database):
             quantity_needed_finished
         )
 
-        supplier_orders, stock_raw_updated_2 = self.supplier_orders(
+        supplier_orders, stock_raw_updated_2, new_deliveries = self.supplier_orders(
             supplier_needs, 
             stock_raw
         )
@@ -69,7 +69,8 @@ class MPS(Database):
                 production_orders, 
                 stock_raw_updated_2, 
                 stock_finished_updated,
-                supplier_orders
+                supplier_orders,
+                new_deliveries
             )
 
 
@@ -164,6 +165,7 @@ class MPS(Database):
 
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
         best_full_paths = {}
+        stock_raw_updated = stock_raw.copy()
 
         for order in quantity_needed_finished:
             for piece in self.raw_workpieces:
@@ -179,7 +181,7 @@ class MPS(Database):
                 if order_id == order[0]:
                     quantity_produced = min(
                                 order[2],
-                                sum([s[3] for s in stock_raw if s[2] in path])
+                                sum([s[3] for s in stock_raw_updated if s[2] in path])
                             )
                     production_orders.append(
                         [
@@ -193,7 +195,7 @@ class MPS(Database):
                     production_raw_material = []
                     i = 0
 
-                    for stock in stock_raw:
+                    for stock in stock_raw_updated:
                         for piece in reversed(path):
                             if piece == stock[2]:
                                 stock_consumption = min(
@@ -203,7 +205,7 @@ class MPS(Database):
 
                                 quantity_produced -= stock_consumption
                                 
-                                stock_raw[i] = tuple([
+                                stock_raw_updated[i] = tuple([
                                     stock[0],
                                     stock[1],
                                     stock[2],
@@ -229,7 +231,7 @@ class MPS(Database):
         #             ])
         #         )
 
-        stock_raw = [s for s in stock_raw if s[3] > 0]
+        stock_raw_updated = [s for s in stock_raw_updated if s[3] > 0]
 
         all_last_production_orders_query = """SELECT * FROM erp_mes.production_order;"""
         all_last_production_orders = self.send_query(all_last_production_orders_query, fetch=True)
@@ -266,7 +268,7 @@ class MPS(Database):
 
         production_orders_final = [p for p in production_orders_final if p[2] > 0]
 
-        return production_orders_final, stock_raw, production_raw_material
+        return production_orders_final, stock_raw_updated, production_raw_material
 
 
     def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, today):
@@ -331,9 +333,8 @@ class MPS(Database):
 
 
     def supplier_orders(self, supplier_needs, stock_raw):
-        # TODO: create table with supplier deliveries (inc id / P1 qty / P2 qty / delivery_date)
-        supplier_query = """SELECT * from erp_mes.supplier;"""
-        suppliers = self.send_query(supplier_query, fetch=True)
+        suppliers_query = """SELECT * from erp_mes.supplier;"""
+        suppliers = self.send_query(suppliers_query, fetch=True)
 
         supplier_orders = []
 
@@ -368,7 +369,6 @@ class MPS(Database):
                 order[2]
             ])
 
-        # TODO: delete stock raw 
         for stock_1 in stock_raw_updated_suppliers:
             for stock_2 in stock_raw_updated_2:
                 if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
@@ -378,7 +378,13 @@ class MPS(Database):
                         stock_1
                     )
 
-        return supplier_orders, stock_raw_updated_2
+        new_deliveries = tuple([
+            stock_raw_updated_suppliers[0][0],
+            sum([s[2] for s in stock_raw_updated_suppliers if s[1] == 'P1']),
+            sum([s[2] for s in stock_raw_updated_suppliers if s[1] == 'P2'])
+        ])
+
+        return supplier_orders, stock_raw_updated_2, new_deliveries
 
 
     def update_database(
@@ -387,7 +393,8 @@ class MPS(Database):
             production_orders, 
             stock_raw_updated,
             stock_finished_updated,
-            supplier_orders
+            supplier_orders,
+            new_deliveries
     ) -> None:
         print("Updating Database...")
 
@@ -403,17 +410,22 @@ class MPS(Database):
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_production, parameters=order)
 
-        for stock in stock_raw_updated:  # + stock_finished_updated:
-            update_stock = """INSERT INTO erp_mes.stock(
-            day, piece, quantity
-            ) VALUES (%s, %s, %s)"""
-            self.send_query(update_stock, parameters=stock)
+        # for stock in stock_raw_updated:  # + stock_finished_updated:
+        #     update_stock = """INSERT INTO erp_mes.stock(
+        #     day, piece, quantity
+        #     ) VALUES (%s, %s, %s)"""
+        #     self.send_query(update_stock, parameters=stock)
 
         for order in supplier_orders:
             update_supply = """INSERT INTO erp_mes.supply_order(
             client_order_id, piece, quantity, buy_date
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_supply, parameters=order)
+
+        update_deliveries = """INSERT INTO erp_mes.delivery(
+        day, P1_qty, P2_qty
+        ) VALUES (%s, %s, %s)"""
+        self.send_query(update_deliveries, parameters=new_deliveries)
 
 
     def total_cost(self, Rc, Pc, Dc):
