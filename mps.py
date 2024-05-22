@@ -6,14 +6,14 @@ from database import Database
 
 class MPS(Database):
 
-    def __init__(self, online) -> None:
+    def __init__(self, debug) -> None:
         super().__init__()
         self.finished_workpieces = ('P5', 'P6', 'P7', 'P9')
         self.raw_workpieces = ('P1', 'P2')
         self.intermediate_workpieces = ('P3', 'P4', 'P8')
         self.all_pieces = self.finished_workpieces + self.raw_workpieces + self.intermediate_workpieces
         self.transformations = self.send_query("SELECT * FROM erp_mes.transformations;", fetch=True)
-        self.online = online
+        self.debug = debug
 
         self.P = nx.DiGraph()
         self.P.add_nodes_from(
@@ -63,7 +63,7 @@ class MPS(Database):
             stock_raw
         )
 
-        if self.online is True:
+        if self.debug is False:
             self.update_database(
                 expedition_orders, 
                 production_orders, 
@@ -175,6 +175,7 @@ class MPS(Database):
                     pass
 
         production_orders = []
+        production_raw_material = []
 
         for order in quantity_needed_finished:
             for order_id, path in best_full_paths.items():
@@ -192,7 +193,6 @@ class MPS(Database):
                         ]
                     )
 
-                    production_raw_material = []
                     i = 0
 
                     for stock in stock_raw_updated:
@@ -378,8 +378,12 @@ class MPS(Database):
                         stock_1
                     )
 
+        if len(stock_raw_updated_suppliers) == 0:
+            quantity = 0
+        else:
+            quantity = stock_raw_updated_suppliers[0][0]
         new_deliveries = tuple([
-            stock_raw_updated_suppliers[0][0],
+            quantity,
             sum([s[2] for s in stock_raw_updated_suppliers if s[1] == 'P1']),
             sum([s[2] for s in stock_raw_updated_suppliers if s[1] == 'P2'])
         ])
