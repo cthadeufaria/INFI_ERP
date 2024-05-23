@@ -75,7 +75,7 @@ class MPS(Database):
 
 
     def get_orders(self, today):
-        query = """SELECT
+        query = """SELECT DISTINCT
             o.id, o.client_id, o.number, o.quantity - 
             case when s.quantity is null then 0
             else s.quantity
@@ -90,7 +90,7 @@ class MPS(Database):
             on eo.id = es.expedition_order_id) s
             on o.id = s.client_order_id
             WHERE s.end_date is NULL
-            AND o.duedate = (%s);"""
+            AND o.duedate <= (%s);"""
         return self.send_query(query, parameters=(today,), fetch=True)
 
 
@@ -144,7 +144,7 @@ class MPS(Database):
 
     def get_next_orders(self, today):
         parameter = today + 1
-        query = """SELECT 
+        query = """SELECT DISTINCT
             o.id, o.client_id, o.number, o.quantity - 
             case when s.quantity is null then 0
             else s.quantity
@@ -285,8 +285,8 @@ class MPS(Database):
         quantity_needed = orders_by_date.copy()
         
         for expedition_order in expedition_orders:
-            for order in orders_by_date:
-                if expedition_order[1] == order[1] and expedition_order[1] == order[1]:                    
+            for order in quantity_needed:
+                if expedition_order[1] == order[1] and expedition_order[2] == order[2]:                    
                     quantity_needed[
                         quantity_needed == order
                     ] = tuple(
@@ -314,6 +314,9 @@ class MPS(Database):
             for f in quantity_needed_finished
             if o[0] == f[0]
         ]
+
+        if len(lack_production) == 0:
+            lack_production = quantity_needed_finished.copy()
 
         supplier_needs = []
 
@@ -368,9 +371,21 @@ class MPS(Database):
                 order[1],
                 order[2]
             ])
+        
+        # TODO: sum quantities for same day and piece in stock_raw_updated_suppliers
+        if len(stock_raw_updated_suppliers) == 0:
+            stock_raw_updated_suppliers_2 = stock_raw_updated_suppliers.copy()
+        else:
+            stock_raw_updated_suppliers_2 = [stock_raw_updated_suppliers[0]]
+            for stock_1 in stock_raw_updated_suppliers[1:]:
+                for stock_2 in stock_raw_updated_suppliers_2:
+                    if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
+                        stock_raw_updated_suppliers_2[
+                            stock_raw_updated_suppliers_2 == stock_1
+                        ] = [stock_1[0], stock_2[1], stock_1[2] + stock_2[2]]
 
-        for stock_1 in stock_raw_updated_suppliers:
-            for stock_2 in stock_raw_updated_2:
+        for stock_1 in stock_raw_updated_2:
+            for stock_2 in stock_raw_updated_suppliers_2:
                 if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
                     stock_2[2] = stock_2[2] + stock_1[2]
                 else:
@@ -427,7 +442,7 @@ class MPS(Database):
             self.send_query(update_supply, parameters=order)
 
         update_deliveries = """INSERT INTO erp_mes.delivery(
-        day, P1_qty, P2_qty
+        day, "P1_qty", "P2_qty"
         ) VALUES (%s, %s, %s)"""
         self.send_query(update_deliveries, parameters=new_deliveries)
 
