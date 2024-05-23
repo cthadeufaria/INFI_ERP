@@ -8,7 +8,7 @@ class Clock(Database):
         super().__init__()
         self.get_initial_time(debug)
         self.reset_trigger()
-        self.yesterday = -1
+        self.yesterday = 0
         self.debug = debug
 
 

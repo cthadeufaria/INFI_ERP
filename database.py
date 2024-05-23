@@ -33,22 +33,27 @@ class Database:
 
 
     def send_query(self, query, parameters=None, fetch=False):
-        conn = self.connect()
-        cur = conn.cursor()
+        while True:
+            try:    
+                conn = self.connect()
+                cur = conn.cursor()
 
-        if parameters == None:
-            cur.execute(query)
-        else:
-            cur.execute(query, (parameters))
+                if parameters == None:
+                    cur.execute(query)
+                else:
+                    cur.execute(query, (parameters))
 
-        if fetch == True:
-            ans = cur.fetchall()
-        else:
-            ans = None
-
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("Connection to database closed")
+                if fetch == True:
+                    ans = cur.fetchall()
+                else:
+                    ans = None
+                conn.commit()
+                cur.close()
+                conn.close()
+                print("Connection to database closed")
+                break
+            
+            except:
+                print("Database error. Trying again.")
 
         return ans

@@ -37,10 +37,13 @@ class MPS(Database):
 
         next_open_orders = self.get_next_orders(today)
 
+        last_production_orders = self.get_last_production_orders(today)
+
         quantity_needed_finished = self.get_quantity_needed_finished(
             today_orders, 
             next_open_orders, 
-            expedition_orders, 
+            expedition_orders,
+            last_production_orders,
             today
         )
 
@@ -92,9 +95,18 @@ class MPS(Database):
             WHERE s.end_date is NULL
             AND o.duedate <= (%s);"""
         return self.send_query(query, parameters=(today,), fetch=True)
+    
+
+    def get_last_production_orders(self, today):
+        query = """SELECT * 
+                FROM erp_mes.production_order o
+                WHERE o.start_date <= (%s);"""
+
+        return self.send_query(query, parameters=(today,), fetch=True)
 
 
     def get_stock(self):
+        # TODO consider stock for days ahead
         query = """SELECT * FROM erp_mes.stock as s
             WHERE s.day = (SELECT MAX(s1.day) from erp_mes.stock as s1);"""
 
@@ -273,7 +285,7 @@ class MPS(Database):
         return production_orders_final, stock_raw_updated, production_raw_material
 
 
-    def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, today):
+    def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, last_production_orders, today):
         orders_by_date = [
             (
                 order[0], 
@@ -284,22 +296,35 @@ class MPS(Database):
             for order in list(today_orders + next_open_orders)
         ]
 
-        quantity_needed = orders_by_date.copy()
+        quantity_needed = []
         
-        for expedition_order in expedition_orders:
-            for order in quantity_needed:
-                if expedition_order[1] == order[1] and expedition_order[2] == order[2]:                    
-                    quantity_needed[
-                        quantity_needed == order
-                    ] = tuple(
+        # for expedition_order in expedition_orders:
+        #     for order in orders_by_date:
+        #         print(quantity_needed)
+        #         print(expedition_orders)
+        #         if expedition_order[0] == order[0] and expedition_order[1] == order[1]:                 
+        #             quantity_needed.append(tuple(
+        #                 [
+        #                     order[0], 
+        #                     order[1], 
+        #                     order[2] - 
+        #                     expedition_order[2], 
+        #                     order[3]
+        #                 ]
+        #             ))
+
+        for production_order in last_production_orders:
+            for order in orders_by_date:
+                if production_order[1] == order[0] and production_order[2] == order[1]:                 
+                    quantity_needed.append(tuple(
                         [
                             order[0], 
                             order[1], 
                             order[2] - 
-                            expedition_order[2], 
+                            production_order[3], 
                             order[3]
                         ]
-                    )
+                    ))
 
         return [t for t in quantity_needed if t[2] > 0]
     
@@ -356,7 +381,7 @@ class MPS(Database):
                 ),
                 order[3]
             ])
-        
+
         stock_raw_updated_2 = []
 
         for stock in stock_raw:
@@ -434,11 +459,11 @@ class MPS(Database):
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_production, parameters=order)
 
-        for stock in stock_raw_updated:  # + stock_finished_updated:
-            update_stock = """INSERT INTO erp_mes.stock(
-            day, piece, quantity
-            ) VALUES (%s, %s, %s)"""
-            self.send_query(update_stock, parameters=stock)
+        # for stock in stock_raw_updated:  # + stock_finished_updated:
+        #     update_stock = """INSERT INTO erp_mes.stock(
+        #     day, piece, quantity
+        #     ) VALUES (%s, %s, %s)"""
+        #     self.send_query(update_stock, parameters=stock)
 
         for order in supplier_orders:
             update_supply = """INSERT INTO erp_mes.supply_order(
@@ -454,7 +479,7 @@ class MPS(Database):
 
     def total_cost(self, Rc, Pc, Dc):
         return Rc + Pc + Dc
-    
+
 
     def depreciation_cost(self, Rc, Dd, Ad):
         return Rc * (Dd - Ad) * 0.01
