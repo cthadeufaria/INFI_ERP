@@ -60,7 +60,7 @@ class MPS(Database):
 
         supplier_orders, stock_raw_updated_2, new_deliveries = self.supplier_orders(
             supplier_needs, 
-            stock_raw
+            stock_raw_updated
         )
 
         if self.debug is False:
@@ -104,12 +104,14 @@ class MPS(Database):
             tpl 
             for tpl in all_stock 
             if tpl[2] in self.finished_workpieces
+            and tpl[3] > 0
         ]
 
         stock_raw = [
             tpl 
             for tpl in all_stock 
             if (tpl[2] in self.raw_workpieces or tpl[2] in self.intermediate_workpieces)
+            and tpl[3] > 0
         ]
 
         return stock_finished, stock_raw
@@ -371,8 +373,8 @@ class MPS(Database):
                 order[1],
                 order[2]
             ])
-        
-        # TODO: sum quantities for same day and piece in stock_raw_updated_suppliers
+
+
         if len(stock_raw_updated_suppliers) == 0:
             stock_raw_updated_suppliers_2 = stock_raw_updated_suppliers.copy()
         else:
@@ -384,23 +386,26 @@ class MPS(Database):
                             stock_raw_updated_suppliers_2 == stock_1
                         ] = [stock_1[0], stock_2[1], stock_1[2] + stock_2[2]]
 
-        for stock_1 in stock_raw_updated_2:
-            for stock_2 in stock_raw_updated_suppliers_2:
-                if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
-                    stock_2[2] = stock_2[2] + stock_1[2]
-                else:
-                    stock_raw_updated_2.append(
-                        stock_1
-                    )
-
-        if len(stock_raw_updated_suppliers) == 0:
-            quantity = 0
+        if len(stock_raw_updated_2) == 0:
+            stock_raw_updated_2 = stock_raw_updated_suppliers_2.copy()
         else:
-            quantity = stock_raw_updated_suppliers[0][0]
+            for stock_1 in stock_raw_updated_suppliers_2:
+                for stock_2 in stock_raw_updated_2:
+                    if stock_1[0] == stock_2[0] and stock_1[1] == stock_2[1]:
+                        stock_2[2] = stock_2[2] + stock_1[2]
+                    else:
+                        stock_raw_updated_2.append(
+                            stock_1
+                        )
+
+        if len(stock_raw_updated_suppliers_2) == 0:
+            day = 0
+        else:
+            day = stock_raw_updated_suppliers_2[0][0]
         new_deliveries = tuple([
-            quantity,
-            sum([s[2] for s in stock_raw_updated_suppliers if s[1] == 'P1']),
-            sum([s[2] for s in stock_raw_updated_suppliers if s[1] == 'P2'])
+            day,
+            sum([s[2] for s in stock_raw_updated_suppliers_2 if s[1] == 'P1']),
+            sum([s[2] for s in stock_raw_updated_suppliers_2 if s[1] == 'P2'])
         ])
 
         return supplier_orders, stock_raw_updated_2, new_deliveries
@@ -429,11 +434,11 @@ class MPS(Database):
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_production, parameters=order)
 
-        # for stock in stock_raw_updated:  # + stock_finished_updated:
-        #     update_stock = """INSERT INTO erp_mes.stock(
-        #     day, piece, quantity
-        #     ) VALUES (%s, %s, %s)"""
-        #     self.send_query(update_stock, parameters=stock)
+        for stock in stock_raw_updated:  # + stock_finished_updated:
+            update_stock = """INSERT INTO erp_mes.stock(
+            day, piece, quantity
+            ) VALUES (%s, %s, %s)"""
+            self.send_query(update_stock, parameters=stock)
 
         for order in supplier_orders:
             update_supply = """INSERT INTO erp_mes.supply_order(
