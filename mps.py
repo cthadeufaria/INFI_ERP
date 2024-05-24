@@ -26,18 +26,39 @@ class MPS(Database):
 
     def create_mps(self, today):
         today_orders = self.get_orders(today)
+        print("today_orders:")
+        print(today_orders)
+        print("\n")
         
         stock_finished, stock_raw = self.get_stock()
+        print("stock_finished:")
+        print(stock_finished)
+        print("\n")
+        print("stock_raw:")
+        print(stock_raw)
+        print("\n")
         
         expedition_orders, stock_finished_updated = self.expedition_orders(
             stock_finished, 
             today_orders, 
             today
         )
+        print("expedition_orders:")
+        print(expedition_orders)
+        print("\n")
+        print("stock_finished_updated:")
+        print(stock_finished_updated)
+        print("\n")
 
         next_open_orders = self.get_next_orders(today)
+        print("next_open_orders:")
+        print(next_open_orders)
+        print("\n")
 
         last_production_orders = self.get_last_production_orders(today)
+        print("last_production_orders:")
+        print(last_production_orders)
+        print("\n")
 
         quantity_needed_finished = self.get_quantity_needed_finished(
             today_orders, 
@@ -46,7 +67,10 @@ class MPS(Database):
             last_production_orders,
             today
         )
-
+        print("quantity_needed_finished:")
+        print(quantity_needed_finished)
+        print("\n")
+        
         production_orders, stock_raw_updated, production_raw_material = self.production_orders(
             today_orders, 
             next_open_orders, 
@@ -55,16 +79,28 @@ class MPS(Database):
             quantity_needed_finished,
             today
         )
+        print("production_orders:")
+        print(production_orders)
+        print("\n")
 
         supplier_needs = self.supplier_needs(
             production_orders,
             quantity_needed_finished
         )
+        print("supplier_needs:")
+        print(supplier_needs)
+        print("\n")
 
         supplier_orders, stock_raw_updated_2, new_deliveries = self.supplier_orders(
             supplier_needs, 
             stock_raw_updated
         )
+        print("suppler_orders:")
+        print(supplier_orders)
+        print("\n")
+        print("new_deliveries:")
+        print(new_deliveries)
+        print("\n")
 
         if self.debug is False:
             self.update_database(
@@ -313,34 +349,59 @@ class MPS(Database):
         #                 ]
         #             ))
 
-        for production_order in last_production_orders:
-            for order in orders_by_date:
-                if production_order[1] == order[0] and production_order[2] == order[1]:                 
-                    quantity_needed.append(tuple(
-                        [
-                            order[0], 
-                            order[1], 
-                            order[2] - 
-                            production_order[3], 
-                            order[3]
-                        ]
-                    ))
+        if len(last_production_orders) == 0:
+            quantity_needed = orders_by_date.copy()
+        else:
+            for production_order in last_production_orders:
+                for order in orders_by_date:
+                    if production_order[1] == order[0] and production_order[2] == order[1]:                 
+                        quantity_needed.append(tuple(
+                            [
+                                order[0], 
+                                order[1], 
+                                order[2] - 
+                                production_order[3], 
+                                order[3]
+                            ]
+                        ))
 
         return [t for t in quantity_needed if t[2] > 0]
     
 
     def supplier_needs(self, production_orders, quantity_needed_finished):
-        lack_production = [
-            tuple([
-                o[0],
-                o[1],
-                f[2] - o[2],
-                o[3]
-            ]) 
-            for o in production_orders
-            for f in quantity_needed_finished
-            if o[0] == f[0]
-        ]
+        # lack_production = [
+        #     tuple([
+        #         o[0],
+        #         o[1],
+        #         f[2] - o[2],
+        #         o[3]
+        #     ]) 
+        #     for o in production_orders
+        #     for f in quantity_needed_finished
+        #     if o[0] == f[0]
+        # ]
+
+        lack_production = []
+
+        for o in production_orders:
+            for f in quantity_needed_finished:
+                if o[0] == f[0]:
+                    lack_production.append(
+                        tuple([
+                        o[0],
+                        o[1],
+                        f[2] - o[2],
+                        o[3]
+                    ]) 
+                    )
+
+        for f in quantity_needed_finished:
+            if f[0] not in [o[0] for o in production_orders]:
+                lack_production.append(
+                    f
+                )
+
+        lack_production = [l for l in lack_production if l[2] > 0]
 
         if len(lack_production) == 0:
             lack_production = quantity_needed_finished.copy()
