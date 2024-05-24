@@ -1,4 +1,4 @@
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 
 from database import Database
 
@@ -28,7 +28,7 @@ class Clock(Database):
                 fetch=True
             )[0][0]
         elif debug is True:
-            self.initial_time = dt.now()
+            self.initial_time = dt.now() - timedelta(seconds=300)
 
     
     def reset_trigger(self):

@@ -216,16 +216,22 @@ class MPS(Database):
     def production_orders(self, today_orders, next_open_orders, expedition_orders, stock_raw, quantity_needed_finished, today):
         best_full_paths = {}
         stock_raw_updated = stock_raw.copy()
+        alternative_paths = {}
 
         for order in quantity_needed_finished:
             for piece in self.raw_workpieces:
                 try:
                     best_full_paths[order[0]] = nx.dijkstra_path(self.P, source=piece, target=order[1])
+                    if order[1] == 'P7' and piece == 'P1':
+                        alternative_paths[order[0]] = nx.dijkstra_path(self.P, source=piece, target=order[1])
                 except nx.exception.NetworkXNoPath:
                     pass
 
         production_orders = []
         production_raw_material = []
+
+        for order_id, path in alternative_paths.items():
+            best_full_paths[order_id] += path
 
         for order in quantity_needed_finished:
             for order_id, path in best_full_paths.items():
@@ -365,6 +371,11 @@ class MPS(Database):
                             ]
                         ))
 
+        orders_not_produced = [o for o in orders_by_date if o[0] not in [q[0] for q in quantity_needed]]
+
+        for order in orders_not_produced:
+            quantity_needed.append(order)
+        
         return [t for t in quantity_needed if t[2] > 0]
     
 
