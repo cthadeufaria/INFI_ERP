@@ -19,9 +19,10 @@ def main():
     clock_thread = threading.Thread(target=clock.listen)
     clock_thread.start()
 
+    print("Server is running")
+    
     while True:
         time.sleep(1)
-        print('loop')
 
         if udp_orders.data != None:
             order = Order(udp_orders.data)

@@ -26,39 +26,18 @@ class MPS(Database):
 
     def create_mps(self, today):
         today_orders = self.get_orders(today)
-        print("today_orders:")
-        print(today_orders)
-        print("\n")
         
         stock_finished, stock_raw = self.get_stock()
-        print("stock_finished:")
-        print(stock_finished)
-        print("\n")
-        print("stock_raw:")
-        print(stock_raw)
-        print("\n")
         
         expedition_orders, stock_finished_updated = self.expedition_orders(
             stock_finished, 
             today_orders, 
             today
         )
-        print("expedition_orders:")
-        print(expedition_orders)
-        print("\n")
-        print("stock_finished_updated:")
-        print(stock_finished_updated)
-        print("\n")
 
         next_open_orders = self.get_next_orders(today)
-        print("next_open_orders:")
-        print(next_open_orders)
-        print("\n")
 
         last_production_orders = self.get_last_production_orders(today)
-        print("last_production_orders:")
-        print(last_production_orders)
-        print("\n")
 
         quantity_needed_finished = self.get_quantity_needed_finished(
             today_orders, 
@@ -67,9 +46,6 @@ class MPS(Database):
             last_production_orders,
             today
         )
-        print("quantity_needed_finished:")
-        print(quantity_needed_finished)
-        print("\n")
         
         production_orders, production_orders_capacity, stock_raw_updated, production_raw_material = self.production_orders(
             today_orders, 
@@ -79,28 +55,16 @@ class MPS(Database):
             quantity_needed_finished,
             today
         )
-        print("production_orders:")
-        print(production_orders)
-        print("\n")
 
         supplier_needs = self.supplier_needs(
             production_orders_capacity,
             quantity_needed_finished
         )
-        print("supplier_needs:")
-        print(supplier_needs)
-        print("\n")
 
         supplier_orders, stock_raw_updated_2, new_deliveries = self.supplier_orders(
             supplier_needs, 
             stock_raw_updated
         )
-        print("suppler_orders:")
-        print(supplier_orders)
-        print("\n")
-        print("new_deliveries:")
-        print(new_deliveries)
-        print("\n")
 
         if self.debug is False:
             self.update_database(
@@ -111,6 +75,43 @@ class MPS(Database):
                 supplier_orders,
                 new_deliveries
             )
+            
+        print("today_orders:")
+        print(today_orders)
+        print("\n")
+        print("stock_finished:")
+        print(stock_finished)
+        print("\n")
+        print("stock_raw:")
+        print(stock_raw)
+        print("\n")
+        print("expedition_orders:")
+        print(expedition_orders)
+        print("\n")
+        print("stock_finished_updated:")
+        print(stock_finished_updated)
+        print("\n")
+        print("next_open_orders:")
+        print(next_open_orders)
+        print("\n")
+        print("last_production_orders:")
+        print(last_production_orders)
+        print("\n")        
+        print("quantity_needed_finished:")
+        print(quantity_needed_finished)
+        print("\n")        
+        print("production_orders:")
+        print(production_orders)
+        print("\n")
+        print("supplier_needs:")
+        print(supplier_needs)
+        print("\n")        
+        print("suppler_orders:")
+        print(supplier_orders)
+        print("\n")
+        print("new_deliveries:")
+        print(new_deliveries)
+        print("\n")
 
 
     def get_orders(self, today):
@@ -129,7 +130,16 @@ class MPS(Database):
             on eo.id = es.expedition_order_id) s
             on o.id = s.client_order_id
             WHERE s.end_date is NULL
-            AND o.duedate <= (%s);"""
+            AND o.duedate <= (%s)
+            GROUP BY o.id, o.client_id, o.number, o.quantity - 
+            case when s.quantity is null then 0
+            else s.quantity
+            end,
+            o.duedate, o.latepen, o.earlypen, o.piece
+            HAVING o.quantity - 
+            case when s.quantity is null then 0
+            else s.quantity
+            end > 0;"""
         return self.send_query(query, parameters=(today,), fetch=True)
     
 
@@ -190,7 +200,7 @@ class MPS(Database):
             if s[2] == o[1]
         ]
 
-        return expedition_orders, stock_finished_updated
+        return [e for e in expedition_orders if e[2] > 0], stock_finished_updated
 
 
     def get_next_orders(self, today):
@@ -210,7 +220,16 @@ class MPS(Database):
             on eo.id = es.expedition_order_id) s
             on o.id = s.client_order_id
             WHERE s.end_date is NULL
-            AND o.duedate >= (%s);"""
+            AND o.duedate >= (%s)
+            GROUP BY o.id, o.client_id, o.number, o.quantity - 
+            case when s.quantity is null then 0
+            else s.quantity
+            end,
+            o.duedate, o.latepen, o.earlypen, o.piece
+            HAVING o.quantity - 
+            case when s.quantity is null then 0
+            else s.quantity
+            end > 0;"""
         return self.send_query(query, parameters=(parameter,), fetch=True)
     
 
@@ -278,25 +297,15 @@ class MPS(Database):
                         
                         i += 1
 
-        # for stock in stock_raw:
-        #     if stock[2] not in [s[1] for s in stock_raw_updated]:
-        #         stock_raw_updated.append(
-        #             tuple([
-        #                 stock[1] + 1,
-        #                 stock[2],
-        #                 stock[3],
-        #             ])
-        #         )
-
         stock_raw_updated = [s for s in stock_raw_updated if s[3] > 0]
 
         all_last_production_orders_query = """SELECT * FROM erp_mes.production_order;"""
         all_last_production_orders = self.send_query(all_last_production_orders_query, fetch=True)
 
-        for order_1 in production_orders:
-            for order_2 in all_last_production_orders:
-                if order_1[0] == order_2[1] and order_1[1] == order_2[2]:
-                    order_1[2] = order_1[2] - order_2[3]
+        # for order_1 in production_orders:
+        #     for order_2 in all_last_production_orders:
+        #         if order_1[0] == order_2[1] and order_1[1] == order_2[2]:
+        #             order_1[2] = order_1[2] - order_2[3]
 
         production_orders_final = []
         production_orders_final_capacity = production_orders.copy()
@@ -325,6 +334,9 @@ class MPS(Database):
                 break
 
         production_orders_final = [p for p in production_orders_final if p[2] > 0]
+        production_orders_final_capacity = [
+            p for p in production_orders_final_capacity if p[2] > 0
+        ]
 
         return production_orders_final, production_orders_final_capacity, stock_raw_updated, production_raw_material
 
