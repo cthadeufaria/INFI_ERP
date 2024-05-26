@@ -71,7 +71,7 @@ class MPS(Database):
         print(quantity_needed_finished)
         print("\n")
         
-        production_orders, stock_raw_updated, production_raw_material = self.production_orders(
+        production_orders, production_orders_capacity, stock_raw_updated, production_raw_material = self.production_orders(
             today_orders, 
             next_open_orders, 
             expedition_orders, 
@@ -84,7 +84,7 @@ class MPS(Database):
         print("\n")
 
         supplier_needs = self.supplier_needs(
-            production_orders,
+            production_orders_capacity,
             quantity_needed_finished
         )
         print("supplier_needs:")
@@ -299,6 +299,7 @@ class MPS(Database):
                     order_1[2] = order_1[2] - order_2[3]
 
         production_orders_final = []
+        production_orders_final_capacity = production_orders.copy()
         all_pieces = 0
 
         for p in production_orders:
@@ -325,7 +326,7 @@ class MPS(Database):
 
         production_orders_final = [p for p in production_orders_final if p[2] > 0]
 
-        return production_orders_final, stock_raw_updated, production_raw_material
+        return production_orders_final, production_orders_final_capacity, stock_raw_updated, production_raw_material
 
 
     def get_quantity_needed_finished(self, today_orders, next_open_orders, expedition_orders, last_production_orders, today):
