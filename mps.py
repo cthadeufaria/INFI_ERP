@@ -134,9 +134,10 @@ class MPS(Database):
     
 
     def get_last_production_orders(self, today):
-        query = """SELECT * 
+        query = """SELECT o.client_order_id, o.piece, sum(o.quantity)
                 FROM erp_mes.production_order o
-                WHERE o.start_date <= (%s);"""
+                WHERE o.start_date <= (%s)
+                GROUP BY o.client_order_id, o.piece;"""
 
         return self.send_query(query, parameters=(today,), fetch=True)
 
@@ -339,34 +340,19 @@ class MPS(Database):
         ]
 
         quantity_needed = []
-        
-        # for expedition_order in expedition_orders:
-        #     for order in orders_by_date:
-        #         print(quantity_needed)
-        #         print(expedition_orders)
-        #         if expedition_order[0] == order[0] and expedition_order[1] == order[1]:                 
-        #             quantity_needed.append(tuple(
-        #                 [
-        #                     order[0], 
-        #                     order[1], 
-        #                     order[2] - 
-        #                     expedition_order[2], 
-        #                     order[3]
-        #                 ]
-        #             ))
 
         if len(last_production_orders) == 0:
             quantity_needed = orders_by_date.copy()
         else:
             for production_order in last_production_orders:
                 for order in orders_by_date:
-                    if production_order[1] == order[0] and production_order[2] == order[1]:                 
+                    if production_order[0] == order[0] and production_order[1] == order[1]:                 
                         quantity_needed.append(tuple(
                             [
                                 order[0], 
                                 order[1], 
                                 order[2] - 
-                                production_order[3], 
+                                production_order[2], 
                                 order[3]
                             ]
                         ))
@@ -380,18 +366,6 @@ class MPS(Database):
     
 
     def supplier_needs(self, production_orders, quantity_needed_finished):
-        # lack_production = [
-        #     tuple([
-        #         o[0],
-        #         o[1],
-        #         f[2] - o[2],
-        #         o[3]
-        #     ]) 
-        #     for o in production_orders
-        #     for f in quantity_needed_finished
-        #     if o[0] == f[0]
-        # ]
-
         lack_production = []
 
         for o in production_orders:
