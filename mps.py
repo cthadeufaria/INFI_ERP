@@ -389,8 +389,8 @@ class MPS(Database):
 
         lack_production = [l for l in lack_production if l[2] > 0]
 
-        if len(lack_production) == 0:
-            lack_production = quantity_needed_finished.copy()
+        # if len(lack_production) == 0:
+        #     lack_production = quantity_needed_finished.copy()
 
         supplier_needs = []
 
