@@ -3,7 +3,7 @@ import networkx as nx
 from database import Database
 
 
-
+# TODO: If supplier's orders weren't delivered, they should be considered in the next day's MPS.
 class MPS(Database):
 
     def __init__(self, debug) -> None:

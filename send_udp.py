@@ -4,7 +4,7 @@ import socket
 UDP_IP = "127.0.0.1"  
 UDP_PORT = 24680   
 path = './xml_orders_examples/'
-file = 'command4.xml'
+file = 'command2a.xml'
 
 # message = "Hello, UDP!"
 # message = et.parse(path + file)

@@ -15,10 +15,10 @@
 ]>
 <DOCUMENT>
 <Client NameId="Client BB"/>
-<Order Number="0042" WorkPiece="P7" Quantity="3" DueDate="12" LatePen="10" EarlyPen="5"/>
-<Order Number="0043" WorkPiece="P7" Quantity="2" DueDate="12" LatePen="15" EarlyPen="5"/>
-<Order Number="0044" WorkPiece="P6" Quantity="4" DueDate="12" LatePen="15" EarlyPen="2"/>
-<Order Number="0045" WorkPiece="P5" Quantity="8" DueDate="11" LatePen="15" EarlyPen="2"/>
+<Order Number="0042" WorkPiece="P7" Quantity="3" DueDate="10" LatePen="10" EarlyPen="5"/>
+<Order Number="0043" WorkPiece="P7" Quantity="2" DueDate="10" LatePen="15" EarlyPen="5"/>
+<Order Number="0044" WorkPiece="P6" Quantity="4" DueDate="10" LatePen="15" EarlyPen="2"/>
+<Order Number="0045" WorkPiece="P5" Quantity="8" DueDate="9" LatePen="15" EarlyPen="2"/>
 </DOCUMENT>
 
 
