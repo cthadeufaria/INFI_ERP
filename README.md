@@ -8,4 +8,4 @@ To test receiving new client orders in XML format, run `python3 send_udp.py`. Af
 
 On each minute after after the initial time, the Master Planning Schedule will be created and the database updated.
 
-For the code to run on production environment, variables debug and online in main must be set to False and True respectively.
+For the code to run on production environment, both debug variables in `main.py` must be set to False.
