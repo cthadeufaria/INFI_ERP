@@ -9,6 +9,7 @@ from mps import MPS
 
 
 def main():
+    # TODO: check new way to check if mes is online. Check database.
     udp_orders = UDPsocket("0.0.0.0", 24680)
     clock = Clock(debug=False)
     mps = MPS(debug=False)

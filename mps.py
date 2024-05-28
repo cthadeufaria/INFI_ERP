@@ -3,10 +3,10 @@ import networkx as nx
 from database import Database
 
 
-# TODO: If supplier's orders weren't delivered, they should be considered in the next day's MPS.
+
 class MPS(Database):
 
-    def __init__(self, debug) -> None:
+    def __init__(self, debug) -> None: # TODO: add table and methods to calculate total cost of production orders
         super().__init__()
         self.finished_workpieces = ('P5', 'P6', 'P7', 'P9')
         self.raw_workpieces = ('P1', 'P2')
@@ -153,7 +153,6 @@ class MPS(Database):
 
 
     def get_stock(self):
-        # TODO consider stock for days ahead
         query = """SELECT * FROM erp_mes.stock as s
             WHERE s.day = (SELECT MAX(s1.day) from erp_mes.stock as s1);"""
 
@@ -299,14 +298,6 @@ class MPS(Database):
 
         stock_raw_updated = [s for s in stock_raw_updated if s[3] > 0]
 
-        all_last_production_orders_query = """SELECT * FROM erp_mes.production_order;"""
-        all_last_production_orders = self.send_query(all_last_production_orders_query, fetch=True)
-
-        # for order_1 in production_orders:
-        #     for order_2 in all_last_production_orders:
-        #         if order_1[0] == order_2[1] and order_1[1] == order_2[2]:
-        #             order_1[2] = order_1[2] - order_2[3]
-
         production_orders_final = []
         production_orders_final_capacity = production_orders.copy()
         all_pieces = 0
@@ -400,9 +391,6 @@ class MPS(Database):
                 )
 
         lack_production = [l for l in lack_production if l[2] > 0]
-
-        # if len(lack_production) == 0:
-        #     lack_production = quantity_needed_finished.copy()
 
         supplier_needs = []
 
@@ -517,12 +505,6 @@ class MPS(Database):
             client_order_id, piece, quantity, start_date
             ) VALUES (%s, %s, %s, %s)"""
             self.send_query(update_production, parameters=order)
-
-        # for stock in stock_raw_updated:  # + stock_finished_updated:
-        #     update_stock = """INSERT INTO erp_mes.stock(
-        #     day, piece, quantity
-        #     ) VALUES (%s, %s, %s)"""
-        #     self.send_query(update_stock, parameters=stock)
 
         for order in supplier_orders:
             update_supply = """INSERT INTO erp_mes.supply_order(
