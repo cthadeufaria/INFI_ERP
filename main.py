@@ -5,6 +5,7 @@ from order_management import Order
 from receive_udp import UDPsocket
 from time_management import Clock
 from mps import MPS
+from mes import MES
 
 
 
@@ -13,6 +14,7 @@ def main():
     udp_orders = UDPsocket("0.0.0.0", 24680)
     clock = Clock(debug=False)
     mps = MPS(debug=False)
+    mes = MES()
 
     udp_thread = threading.Thread(target=udp_orders.listen)
     udp_thread.start()
@@ -30,7 +32,7 @@ def main():
             order.update_clients_orders()
             udp_orders.reset_data()
 
-        if clock.trigger:
+        if clock.trigger and mes.is_online(clock.today):
             mps.create_mps(clock.today)
             print('MPS created for day ', clock.today)
             clock.reset_trigger()
