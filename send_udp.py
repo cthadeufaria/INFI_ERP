@@ -1,4 +1,5 @@
 import socket
+import time
 
 
 
@@ -8,6 +9,7 @@ path = './xml_orders_examples/'
 files = ['command2a.xml', 'command4.xml']
 
 for file in files:
+    time.sleep(10)
     xml = open(path + file)
     message = xml.read(1024)
 

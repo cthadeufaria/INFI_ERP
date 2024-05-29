@@ -6,7 +6,7 @@ from database import Database
 
 class MPS(Database):
 
-    def __init__(self, debug) -> None: # TODO: add table and methods to calculate total cost of production orders
+    def __init__(self, debug) -> None:
         super().__init__()
         self.finished_workpieces = ('P5', 'P6', 'P7', 'P9')
         self.raw_workpieces = ('P1', 'P2')
@@ -66,6 +66,8 @@ class MPS(Database):
             stock_raw_updated
         )
 
+        total_costs = self.calculate_costs(today)
+
         if self.debug is False:
             self.update_database(
                 expedition_orders, 
@@ -73,7 +75,9 @@ class MPS(Database):
                 stock_raw_updated_2, 
                 stock_finished_updated,
                 supplier_orders,
-                new_deliveries
+                new_deliveries,
+                production_raw_material,
+                total_costs
             )
             
         print("today_orders:")
@@ -287,12 +291,12 @@ class MPS(Database):
                                     stock[3] - stock_consumption
                                 ])
 
-                                production_raw_material.append(tuple([
-                                    stock[0],
-                                    stock[1],
-                                    stock[2],
-                                    stock_consumption
-                                ]))
+                                # production_raw_material.append(tuple([
+                                #     order[0],
+                                #     stock[2],
+                                #     stock_consumption,
+                                #     today
+                                # ]))
                         
                         i += 1
 
@@ -328,6 +332,16 @@ class MPS(Database):
         production_orders_final_capacity = [
             p for p in production_orders_final_capacity if p[2] > 0
         ]
+
+        for order in production_orders_final:
+            for order_id, path in best_full_paths.items():
+                if order_id == order[0]:
+                    for piece in reversed(path):
+                        if piece == stock[2]:
+                            production_raw_material.append(tuple([
+                                order[0], piece, order[2], order[3]
+                            ]))
+
 
         return production_orders_final, production_orders_final_capacity, stock_raw_updated, production_raw_material
 
@@ -409,9 +423,13 @@ class MPS(Database):
         return supplier_needs
 
 
-    def supplier_orders(self, supplier_needs, stock_raw):
+    def get_suppliers(self):
         suppliers_query = """SELECT * from erp_mes.supplier;"""
-        suppliers = self.send_query(suppliers_query, fetch=True)
+        return self.send_query(suppliers_query, fetch=True)
+
+
+    def supplier_orders(self, supplier_needs, stock_raw):
+        suppliers = self.get_suppliers()
 
         supplier_orders = []
 
@@ -445,7 +463,6 @@ class MPS(Database):
                 order[1],
                 order[2]
             ])
-
 
         if len(stock_raw_updated_suppliers) == 0:
             stock_raw_updated_suppliers_2 = stock_raw_updated_suppliers.copy()
@@ -483,6 +500,65 @@ class MPS(Database):
         return supplier_orders, stock_raw_updated_2, new_deliveries
 
 
+    def calculate_costs(self, today):
+        """
+        # Tc = Rc + Pc + Dc
+        # Tc = Total Cost
+        # Rc = Raw Material Cost (price of the raw material used to produce that piece)
+        # Pc = Production Cost (Cost to Produce the piece)
+        # Dc = Depreciation Cost (Cost of money invested in the piece)
+        # Dc = Rc x (Dd - Ad) x 1%
+        # Ad = Arrival Date - date the raw material arrived at the production line
+        # Dd = Dispatch Date - date final work-piece leaves the production line (unloaded on cell E)
+        # Pc = € 1 x Pt
+        # Pt = Total Production time (in seconds).
+        """
+
+        suppliers = self.get_suppliers()
+        supplier = 'SupplierC'
+
+        individual_raw_material_cost = [
+            [s[2], s[4]] for s in suppliers if s[1] == supplier
+        ]
+
+        parameter = today - 1
+
+        costs_query = """select 
+                p.client_order_id, p.piece, p.quantity,
+                es.end_date - s.buy_date + 1,
+                pi.total_time
+                from erp_mes.production_raw_material as p,
+                erp_mes.expedition_order as eo,
+                erp_mes.expedition_status as es,
+                erp_mes.supply_order as s,
+                erp_mes.piece_info as pi
+                where p.client_order_id = s.client_order_id
+                and s.client_order_id = eo.client_order_id
+                and eo.client_order_id = pi.client_order_id
+                and eo.id = es.expedition_order_id
+                and p.client_order_id in 
+                (select 
+                distinct o.client_order_id 
+                from erp_mes.expedition_order as o, erp_mes.expedition_status as s
+                where s.end_date = (%s));"""
+        costs = self.send_query(costs_query, parameters=(parameter,), fetch=True)
+
+        total_costs = []
+
+        for row in costs:
+            total_costs.append([
+                row[0],
+                row[1],
+                row[2],
+                row[3], 
+                row[2] * [r[1] for r in individual_raw_material_cost if r[0] == row[1]][0],
+                row[2] * [r[1] for r in individual_raw_material_cost if r[0] == row[1]][0] * row[3] * 0.01,
+                row[4]
+            ])
+
+        return total_costs
+        
+
     def update_database(
             self, 
             expedition_orders, 
@@ -490,7 +566,9 @@ class MPS(Database):
             stock_raw_updated,
             stock_finished_updated,
             supplier_orders,
-            new_deliveries
+            new_deliveries,
+            production_raw_material,
+            total_costs
     ) -> None:
         print("Updating Database...")
 
@@ -517,26 +595,15 @@ class MPS(Database):
         ) VALUES (%s, %s, %s)"""
         self.send_query(update_deliveries, parameters=new_deliveries)
 
+        for row in production_raw_material:
+            update_raw = """INSERT INTO erp_mes.production_raw_material(
+            client_order_id, piece, quantity, start_date
+            ) VALUES (%s, %s, %s, %s)"""
+            self.send_query(update_raw, parameters=row)
 
-    def total_cost(self, Rc, Pc, Dc):
-        return Rc + Pc + Dc
-
-
-    def depreciation_cost(self, Rc, Dd, Ad):
-        return Rc * (Dd - Ad) * 0.01
-    
-
-    def production_cost(self, Pt):
-        return 1 * Pt
-    
-    
-# Tc = Rc + Pc + Dc
-# Tc – Total Cost
-# Rc – Raw Material Cost (price of the raw material used to produce that piece)
-# Pc – Production Cost (Cost to Produce the piece)
-# Dc – Depreciation Cost (Cost of money invested in the piece)
-# Dc = Rc x (Dd - Ad) x 1%
-# Ad – Arrival Date – date the raw material arrived at the production line
-# Dd – Dispatch Date – date final work-piece leaves the production line (unloaded on cell E)
-# Pc = € 1 x Pt
-# Pt – Total Production time (in seconds).
+        for row in total_costs:
+            update_costs = """INSERT INTO erp_mes.total_costs(
+            client_order_id, piece, quantity, depreciation_days, 
+            raw_material_cost, depreciation_cost, production_cost
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+            self.send_query(update_costs, parameters=row)
