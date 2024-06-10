@@ -189,7 +189,7 @@ class MPS(Database):
             )
             for t in today_orders
             for s in stock_finished
-            if s[2] == t[7]
+            if (s[2] == t[7]) and (s[3] - t[3] >= 0)
         ]
 
         stock_finished_updated = [

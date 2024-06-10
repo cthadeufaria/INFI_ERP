@@ -11,8 +11,8 @@ from mps import MPS
 
 def main():
     udp_orders = UDPsocket("0.0.0.0", 24680)
-    clock = Clock(debug=False)
-    mps = MPS(debug=False)
+    clock = Clock(debug=True)
+    mps = MPS(debug=True)
     # mes = MES(debug=True)
 
     udp_thread = threading.Thread(target=udp_orders.listen)
