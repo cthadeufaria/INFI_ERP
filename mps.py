@@ -23,6 +23,8 @@ class MPS(Database):
             [(t[0], t[1]) for t in self.transformations]
         )
 
+        self.last_deliveries = [0, 0, 0]
+
 
     def create_mps(self, today):
         today_orders = self.get_orders(today)
@@ -180,28 +182,39 @@ class MPS(Database):
         
 
     def expedition_orders(self, stock_finished, today_orders, today):
-        expedition_orders = [
-            (
-                t[0], 
-                t[7], 
-                min(s[3], t[3]), 
-                today
-            )
-            for t in today_orders
-            for s in stock_finished
-            if (s[2] == t[7]) and (s[3] - t[3] >= 0)
-        ]
+        # expedition_orders = [
+        #     (
+        #         t[0], 
+        #         t[7], 
+        #         min(s[3], t[3]), 
+        #         today
+        #     )
+        #     for t in today_orders
+        #     for s in stock_finished
+        #     if (s[2] == t[7]) and (s[3] - t[3] >= 0)
+        # ]
 
-        stock_finished_updated = [
-            tuple([
-                s[1] + 1,
-                s[2],
-                s[3] - o[2]
-            ])
-            for s in stock_finished
-            for o in expedition_orders
-            if s[2] == o[1]
-        ]
+        stock_finished = [list(s) for s in stock_finished]
+
+        expedition_orders = []
+        for t in today_orders:
+            for s in stock_finished:
+                if (s[2] == t[7]) and (s[3] - t[3] >= 0):
+                    expedition_orders.append((t[0], t[7], t[3], today))
+                    s[3] -= t[3]
+
+        stock_finished_updated = [tuple(s) for s in stock_finished]
+
+        # stock_finished_updated = [
+        #     tuple([
+        #         s[1] + 1,
+        #         s[2],
+        #         s[3] - o[2]
+        #     ])
+        #     for s in stock_finished
+        #     for o in expedition_orders
+        #     if s[2] == o[1]
+        # ]
 
         return [e for e in expedition_orders if e[2] > 0], stock_finished_updated
 
@@ -487,15 +500,22 @@ class MPS(Database):
                             stock_1
                         )
 
-        if len(stock_raw_updated_suppliers_2) == 0:
+        stock_raw_updated_suppliers_3 = [
+            [s[0], s[1], s[2] - (self.last_deliveries[1] if s[1] == 'P1' else self.last_deliveries[2])]
+            for s in stock_raw_updated_suppliers_2
+        ]
+
+        if len(stock_raw_updated_suppliers_3) == 0:
             day = 0
         else:
-            day = stock_raw_updated_suppliers_2[0][0]
+            day = stock_raw_updated_suppliers_3[0][0]
         new_deliveries = tuple([
             day,
-            sum([s[2] for s in stock_raw_updated_suppliers_2 if s[1] == 'P1']),
-            sum([s[2] for s in stock_raw_updated_suppliers_2 if s[1] == 'P2'])
+            sum([s[2] for s in stock_raw_updated_suppliers_3 if s[1] == 'P1']),
+            sum([s[2] for s in stock_raw_updated_suppliers_3 if s[1] == 'P2'])
         ])
+
+        self.last_deliveries = [n for n in new_deliveries]
 
         return supplier_orders, stock_raw_updated_2, new_deliveries
 
@@ -522,7 +542,7 @@ class MPS(Database):
         ]
 
         parameter = today - 1
-
+        # TODO: check costs query and calculation
         costs_query = """select 
                 p.client_order_id, p.piece, p.quantity,
                 es.end_date - s.buy_date + 1,
