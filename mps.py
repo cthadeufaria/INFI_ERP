@@ -355,7 +355,6 @@ class MPS(Database):
                                 order[0], piece, order[2], order[3]
                             ]))
 
-
         return production_orders_final, production_orders_final_capacity, stock_raw_updated, production_raw_material
 
 
@@ -542,7 +541,7 @@ class MPS(Database):
         ]
 
         parameter = today - 1
-        # TODO: check costs query and calculation
+        # TODO: check costs query and calculation ; check correctness of production_raw_material update (why P3 instead of P1?)
         costs_query = """select 
                 p.client_order_id, p.piece, p.quantity,
                 es.end_date - s.buy_date + 1,
@@ -565,7 +564,16 @@ class MPS(Database):
 
         total_costs = []
 
-        for row in costs:
+        costs_adapted = [list(c) for c in costs]
+
+        for cost in costs_adapted:
+            if cost[1] not in self.raw_workpieces:
+                if cost[1] in ['P3', 'P4', 'P5', 'P7', 'P6']:
+                    cost[1] = 'P1'
+                else:
+                    cost[1] = 'P2'
+
+        for row in costs_adapted:
             total_costs.append([
                 row[0],
                 row[1],
